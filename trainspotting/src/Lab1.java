@@ -30,7 +30,7 @@ public class Lab1{
 		return topRailAvailable;
 	}
 	
-	public Semaphore getBottomRailAvailable() {
+	public Semaphore getBottomTurnCrossingAvailable() {
 		return bottomTurnCrossingAvailable;
 	}
 }
@@ -66,7 +66,7 @@ final class Train implements Runnable{
 				if(event.getStatus()== 0x02) continue; //If sensor inactive continue
 				int posX = event.getXpos();
 				int posY = event.getYpos();
-				if(((posX + 2 >= 8 && posX<8) || (posX - 2 <= 8 && posX>8)) && ((posY + 2 >= 7 && posY<7) || (posY - 2 <= 7 && posY>7))) { //The Plus Junction
+				if((posX >= 6 && posX <=10) && (posY>=5 && posY <= 9)) { //The Plus Junction
 					if(inPlusCrossing) {
 						lab1.getPlusJunctionAvailable().release();
 						inPlusCrossing = false;
@@ -77,20 +77,22 @@ final class Train implements Runnable{
 						inPlusCrossing = true;
 					}
 					
-				}else if((posX - 2 <= 17 && posX>17) && (posY + 2 >= 7 && posY<7)){
+				}else if((posX >= 15 && posX <=19) && (posY >= 5 && posY <= 9)){
 					if(inTurnCrossing) {
 						lab1.getTopTurnCrossingAvailable().release();
 						inTurnCrossing = false;
 					}else {
-						if(posX == 16 && posY == 9) continue;
+						if(posX == 16 && posY == 9) {
+							continue;
+						}
 						tsi.setSpeed(id, 0);
 						lab1.getTopTurnCrossingAvailable().acquire();
 						tsi.setSpeed(id, speed);
 						inTurnCrossing = true;
 						if(posX == 15 && posY == 7) {
-							tsi.setSwitch(17, 7, 0x01);//Unsure if correct direction for the switch
+							tsi.setSwitch(17, 7, 0x02);
 						}else if(posX == 15 && posY == 8){
-							tsi.setSwitch(17, 7, 0x02);//Unsure if correct direction for the switch
+							tsi.setSwitch(17, 7, 0x01);
 						}
 					}
 				}else if(((posX + 2 >= 3 && posX<3) || (posX - 2 <= 3 && posX>3)) && ((posY + 2 >= 11 && posY<11) || (posY - 2 <= 11 && posY>11))){
