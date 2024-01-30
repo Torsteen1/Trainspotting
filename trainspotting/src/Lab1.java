@@ -8,7 +8,7 @@ public class Lab1{
 	private Semaphore bottomRailAvailable = new Semaphore(1);
 	private Semaphore topTurnCrossingAvailable = new Semaphore(1);
 	private Semaphore bottomTurnCrossingAvailable = new Semaphore(1);
-	private Boolean topDoubleRailAvailable = true;
+	private Semaphore topDoubleRailAvailable = new Semaphore(1);
 
 	public Lab1(int speed1, int speed2) {
 		Thread train1 = new Thread(new Train(1, speed1, this, Direction.DOWN));
@@ -38,12 +38,8 @@ public class Lab1{
 		return bottomRailAvailable;
 	}
 	
-	public Boolean getTopDoubleRailAvailable() {
+	public Semaphore getTopDoubleRailAvailable() {
 		return topDoubleRailAvailable;
-	}
-	
-	public void setTopDoubleRailAvailable(Boolean bool) {
-		topDoubleRailAvailable = bool;
 	}
 }
 
@@ -91,8 +87,7 @@ final class Train implements Runnable{
 						inPlusCrossing = true;
 					}
 					
-				}else if((posX >= 15 && posX <=19) && (posY >= 5 && posY <= 9)){
-					if(posX == 16 && posY == 9) continue;
+				}else if((posX >= 15 && posX <=19) && (posY >= 5 && posY < 9)){
 					if(inTurnCrossing) {
 						lab1.getTopTurnCrossingAvailable().release();
 						inTurnCrossing = false;
@@ -107,7 +102,7 @@ final class Train implements Runnable{
 							tsi.setSwitch(17, 7, 0x01);
 						}
 					}
-				}else if(((posX + 2 >= 3 && posX<3) || (posX - 2 <= 3 && posX>3)) && ((posY + 2 >= 11 && posY<11) || (posY - 2 <= 11 && posY>11))){
+				}else if(((posX + 2 >= 3 && posX<3) || (posX - 2 <= 3 && posX>3)) && (posY - 2 <= 11 && posY>11)){
 					if(posX == 3 && posY == 9) continue;
 					if(inTurnCrossing) {
 						lab1.getBottomTurnCrossingAvailable().release();
@@ -123,55 +118,73 @@ final class Train implements Runnable{
 							tsi.setSwitch(3, 11, 0x02);
 						}
 					}
-				}else if(posX==9 && (posY==9 || posY==10)){
+				}else if((posX==5 || posX==14) && (posY==9 || posY==10)){
 					//Double rail
-					//Setting top double rail available
-					//Switches for leaving double rail
-										
-					tsi.setSpeed(id, 0);
-					if(direction == Direction.UP) {
+					
+					if(posX==5 && direction==Direction.UP) {
 						lab1.getBottomTurnCrossingAvailable().release();
 						if(!firstRound) lab1.getBottomRailAvailable().release();
-						
-						lab1.getTopRailAvailable().acquire();
-						lab1.getTopTurnCrossingAvailable().acquire();
-						tsi.setSwitch(17, 7, 0x01);
-					}else if(direction == Direction.DOWN){
+						firstRound = false;
+						continue;
+					}
+					if(posX==14 && direction==Direction.DOWN) {
 						lab1.getTopTurnCrossingAvailable().release();
 						if(!firstRound) lab1.getTopRailAvailable().release();
-						
+						firstRound = false;
+						continue;
+					}
+					
+					tsi.setSpeed(id, 0);
+					
+					if(posX==5) {
 						lab1.getBottomRailAvailable().acquire();
 						lab1.getBottomTurnCrossingAvailable().acquire();
 						tsi.setSwitch(3, 11, 0x02);
+						
+						if(posY==9) {
+							tsi.setSwitch(4,9,0x01);
+							lab1.getTopDoubleRailAvailable().release();
+						}else if(posY==10) {
+							tsi.setSwitch(4,9,0x02);
+						}
 					}
 					
-					inTurnCrossing = true;
+					if(posX==14) {
+						lab1.getTopRailAvailable().acquire();
+						lab1.getTopTurnCrossingAvailable().acquire();
+						tsi.setSwitch(17, 7, 0x01);
+						
+						if(posY==9) {
+							tsi.setSwitch(15,9,0x02);
+							lab1.getTopDoubleRailAvailable().release();
+						}else if(posY==10) {
+							tsi.setSwitch(15,9,0x01);
+						}
+					}
+					
 					tsi.setSpeed(id, speed);
-					firstRound = false;
-					
-					if(posY==9) {//if on top double rail
-						lab1.setTopDoubleRailAvailable(true);
-						if(direction == Direction.UP) {
-							tsi.setSwitch(15, 9, 0x02);
-						}else {
-							tsi.setSwitch(4, 9, 0x01);
-						}
-					}else {//if on bottom rail
-						if(direction == Direction.UP) {
-							tsi.setSwitch(15, 9, 0x01);
-						}else {
-							tsi.setSwitch(4, 9, 0x02);
-						}
-					}
+					inTurnCrossing = true;
 					
 										
 				}else if(posY == 9 && (posX == 3 || posX == 16)) {
-					//Affect semaphore for top/bottom rail and T-junctions
-					
-					switch(direction) {
-					case UP : if(posX==3) tsi.setSwitch(4,9,0x02); break;
-					case DOWN : if(posX==16) tsi.setSwitch(15,9,0x01); break;
+					//Decide which double rail to take logic
+					if(lab1.getTopDoubleRailAvailable().availablePermits()==1) {
+						if(posX==3 && direction==Direction.UP) {
+							tsi.setSwitch(4, 9, 0x01);
+							lab1.getTopDoubleRailAvailable().acquire();
+						}else if(posX==16 && direction==Direction.DOWN) {
+							tsi.setSwitch(15, 9, 0x02);
+							lab1.getTopDoubleRailAvailable().acquire();
+						}
+					}else {
+						if(posX==3 && direction==Direction.UP) {
+							tsi.setSwitch(4, 9, 0x02);
+						}else if(posX==16 && direction==Direction.DOWN) {
+							tsi.setSwitch(15, 9, 0x01);
+						}
 					}
+					
+					
 					
 				}else if((posX == 14 && posY == 13) || (posX == 14 && posY == 5)) {
 					tsi.setSpeed(id, 0);
